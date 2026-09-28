@@ -3,18 +3,22 @@
 #include <iostream>
 #include <string>
 #include <queue>
+#include <ctime>
+#include <cstdlib>
 #include <sstream>
 #include <vector>
 #include <algorithm>
 #include <map>
+#include <unistd.h>
+#include <sys/wait.h>
 using namespace std;
 
 struct Actividad{//ahora si, k no entendi como era el heap en c.......
-    int id;
+    string id;
     string nombre;
     int tiempo_ms;
-    vector<int> dependencias;
-    vector<int> dependientes;
+    vector<string> dependencias;
+    vector<string> dependientes;
 };
 
 string limpiar_espacios(const string &palabra){
@@ -27,12 +31,23 @@ string limpiar_espacios(const string &palabra){
     return palabra.substr(inicio, fin - inicio + 1); //funcion de str q recorta
 }
 
+int generar_tiempo_aleatorio(int min, int max) {
+    return rand() % (max - min + 1) + min;
+}
+
+int tiempo_en_ms(int tiempo) {
+    return tiempo * 1000;
+}
 
 int main(int argc, char *argv[]){
     if (argc < 3){
         cout << "Faltan argumentos" << endl;
         return 1;
     }
+ 
+    const size_t k = stoi(argv[2]);
+    srand(time(NULL)); //para lo del tiempo random
+
     ifstream archivo(argv[1]);
     if (!archivo.is_open()) {
         cout << "No se pudo abrir el archivo" << endl;
@@ -40,7 +55,7 @@ int main(int argc, char *argv[]){
     }
     
     string linea; 
-    map<int, Actividad> actividades;
+    map<string, Actividad> actividades;
     string act_id, act_nombre, act_tiempo, act_deps;
 
     while (getline(archivo, linea)) { //lectura e ingestion del texto
@@ -55,11 +70,15 @@ int main(int argc, char *argv[]){
         act_tiempo = limpiar_espacios(act_tiempo);
         act_deps = limpiar_espacios(act_deps);
 
-        int acti_id = stoi(act_id); //cambio de string a int
-        int acti_tiempo = stoi(act_tiempo);
-
+        string acti_id = act_id;
+        int acti_tiempo = 0;
+        if(!act_tiempo.empty()){
+            acti_tiempo = stoi(act_tiempo);
+        }else{//si esta vacio ranog entre 100-5000
+            acti_tiempo = generar_tiempo_aleatorio(100, 5000);
+        }
         //separacion de dependencias en vector
-        vector<int> dependencias;
+        vector<string> dependencias;
         if (!act_deps.empty()) { //si las dependencias existen, se separan
             stringstream separador_deps(act_deps);
             string dependencias_solitas;
@@ -67,24 +86,10 @@ int main(int argc, char *argv[]){
             while (getline(separador_deps, dependencias_solitas, ',')) {
                 dependencias_solitas = limpiar_espacios(dependencias_solitas);
                 if (!dependencias_solitas.empty()) {
-                    dependencias.push_back(stoi(dependencias_solitas));
+                    dependencias.push_back(dependencias_solitas);
                 }
             }
         }
-
-
-        cout << acti_id << "|" << act_nombre << "|" << acti_tiempo << "|" << "{";
-        int size = dependencias.size(); 
-
-        for(int xd = 0; xd < size ; xd++){
-            if(xd == size - 1){
-                cout << dependencias[xd];
-                break;
-            }
-            cout << dependencias[xd] << ",";
-        }
-        
-        cout << "}" << endl;
 
         //creacion objeto
         Actividad actividad = {acti_id, act_nombre, acti_tiempo, dependencias, {}};
@@ -96,14 +101,14 @@ int main(int argc, char *argv[]){
         Actividad &Objeto_Actividad = carlitos.second;
         
         if(!Objeto_Actividad.dependencias.empty()){ //Asegurarse de no recorrer algo vacio
-            for(int id_del_vector_dep : Objeto_Actividad.dependencias){
+            for(string id_del_vector_dep : Objeto_Actividad.dependencias){
                 actividades[id_del_vector_dep].dependientes.push_back(Objeto_Actividad.id);
             }
         }
     }
 
     //algoritmo para ejecutar las actividades
-    queue<int> actividades_cola;
+    queue<string> actividades_cola;
     for(auto &carlitos_sin_cola : actividades){ //relenar los tier 0
         Actividad &Objeto_Actividad = carlitos_sin_cola.second;
         if(Objeto_Actividad.dependencias.empty()){
@@ -111,24 +116,44 @@ int main(int argc, char *argv[]){
         }
     }
 
-    while(!actividades_cola.empty()){
-        int id_actividad_actual = actividades_cola.front();
-        actividades_cola.pop();
+    map<int,string> registrador_de_pecausas;
 
-        cout << "Tamo haciendo eto" << id_actividad_actual << endl;
+    while(!actividades_cola.empty() || registrador_de_pecausas.size() > 0){
 
-        for(auto &carlitos_identificador_de_dependencias : actividades[id_actividad_actual].dependientes){
-            vector<int> &quienes_dependen_de_carlitos = actividades[carlitos_identificador_de_dependencias].dependencias;
-            vector<int>::iterator posicion_del_listo = find(quienes_dependen_de_carlitos.begin(), quienes_dependen_de_carlitos.end(), id_actividad_actual);
-            //complicao pero practicamente guarda lo que dice el nombre
-            quienes_dependen_de_carlitos.erase(posicion_del_listo);
+        if(!actividades_cola.empty() && registrador_de_pecausas.size() < k){
+            string id_actividad_actual = actividades_cola.front();
+            actividades_cola.pop();
 
-            if(quienes_dependen_de_carlitos.empty()){
-                actividades_cola.push(carlitos_identificador_de_dependencias);
+            int id_del_proceso = fork();
+
+            if(id_del_proceso == 0){
+                cout << "Ejecutando actividad: " << actividades[id_actividad_actual].nombre << " hay " << registrador_de_pecausas.size() + 1<< " activos" << endl;
+                usleep(tiempo_en_ms(actividades[id_actividad_actual].tiempo_ms));
+                exit(0);
+            }else{
+               registrador_de_pecausas[id_del_proceso] = id_actividad_actual;
             }
+        }else if(registrador_de_pecausas.size() == k || (!registrador_de_pecausas.empty() && actividades_cola.empty())){
+            int id_del_proceso_terminado = wait(NULL);
+            string id_actividad_terminada = registrador_de_pecausas[id_del_proceso_terminado];
+
+            for(auto &carlitos_identificador_de_dependencias : actividades[id_actividad_terminada].dependientes){
+                vector<string> &quienes_dependen_de_carlitos = actividades[carlitos_identificador_de_dependencias].dependencias;
+                vector<string>::iterator posicion_del_listo = find(quienes_dependen_de_carlitos.begin(), quienes_dependen_de_carlitos.end(), id_actividad_terminada);
+                //complicao pero practicamente guarda lo que dice el nombre
+
+                if(posicion_del_listo != quienes_dependen_de_carlitos.end()){
+                    quienes_dependen_de_carlitos.erase(posicion_del_listo);
+                }//sin esto si no encontro el coso va a devolver el ultimo, es como para asegurar q todo no explote aunque no se deberia ejecutar
+
+                if(quienes_dependen_de_carlitos.empty()){
+                    actividades_cola.push(carlitos_identificador_de_dependencias);
+                }
+            }
+            cout << "Actividad terminada " << actividades[id_actividad_terminada].nombre << " , ahora quedan " << registrador_de_pecausas.size() - 1 << " procesos activos" << endl;
+            registrador_de_pecausas.erase(id_del_proceso_terminado);
         }
     }
-
     archivo.close();
 
     return 0;
