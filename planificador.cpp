@@ -124,50 +124,67 @@ int main(int argc, char *argv[]){
     }
 
     map<int,string> registrador_de_pecausas;
+    map <int,int> registro_canales;
 
     while(!actividades_cola.empty() || registrador_de_pecausas.size() > 0){
 
         if(!actividades_cola.empty() && registrador_de_pecausas.size() < k){
             string id_actividad_actual = actividades_cola.front();
             actividades_cola.pop();
+            
 
+            int canal[2]; //se crea y abre canal
+            pipe(canal);
             int id_del_proceso = fork();
 
             if(id_del_proceso == 0){
-                cout << "Ejecutando actividad: " << actividades[id_actividad_actual].nombre << " hay " << registrador_de_pecausas.size() + 1<< " activos" << endl;
+                close(canal[0]); //el hijo solo habla, no escucha cerramos esto por si las moscas
+                
                 usleep(tiempo_en_ms(actividades[id_actividad_actual].tiempo_ms));
+                
+                string mensaje = "Lista la actividad: " + actividades[id_actividad_actual].nombre ;
+
+                write(canal[1], mensaje.c_str(), mensaje.size() +1);
+                close(canal[1]);
                 exit(0);
-            }else{
-               registrador_de_pecausas[id_del_proceso] = id_actividad_actual;
+
+            }else{ //papdre
+
+                close(canal[1]); //el padre ecucha pero no talkea
+                
+                registro_canales[id_del_proceso] = canal[0]; //se guarda el canal por donde se responde
+                registrador_de_pecausas[id_del_proceso] = id_actividad_actual;
             }
         }else if(registrador_de_pecausas.size() == k || (!registrador_de_pecausas.empty() && actividades_cola.empty())){
-            int id_del_proceso_terminado = wait(NULL);
+            if(registrador_de_pecausas.size() == k){cout << "Capacidad maxima alcanzada, hay " + to_string(k) + " procesos activos, esperando" << endl;}
+            
+            int estado;
+            int id_del_proceso_terminado = wait(&estado);
+            
+            
             string id_actividad_terminada = registrador_de_pecausas[id_del_proceso_terminado];
+            
+            char cubeta_para_el_msj[256];
+            int mensaje_baiteado =  registro_canales[id_del_proceso_terminado];
+            //Se trae el infice de la tabla del PCB, el cual apunta a donde esta el mensaje.
 
-            for(auto &id_del_dependiente : actividades[id_actividad_terminada].dependientes){
+            read(mensaje_baiteado, cubeta_para_el_msj, sizeof(cubeta_para_el_msj));
+            //sizeof para medir la memoria fisica de el coso
+
+            cout << "Mensaje PIPE: " << cubeta_para_el_msj << endl;
+
+            close(mensaje_baiteado); //liberamos el canal 
+
+            for(auto &id_del_dependiente : actividades[id_actividad_terminada].dependientes){ //actualizar contador
                 actividades[id_del_dependiente].contador_dependencias--;
                 
                 if(actividades[id_del_dependiente].contador_dependencias == 0){
                     actividades_cola.push(id_del_dependiente);
                 }
             }
-
-            /*for(auto &carlitos_identificador_de_dependencias : actividades[id_actividad_terminada].dependientes){
-                vector<string> &quienes_dependen_de_carlitos = actividades[carlitos_identificador_de_dependencias].dependencias;
-                vector<string>::iterator posicion_del_listo = find(quienes_dependen_de_carlitos.begin(), quienes_dependen_de_carlitos.end(), id_actividad_terminada);
-                //complicao pero practicamente guarda lo que dice el nombre
-
-                if(posicion_del_listo != quienes_dependen_de_carlitos.end()){
-                    quienes_dependen_de_carlitos.erase(posicion_del_listo);
-                }//sin esto si no encontro el coso va a devolver el ultimo, es como para asegurar q todo no explote aunque no se deberia ejecutar
-
-                if(quienes_dependen_de_carlitos.empty()){
-                    actividades_cola.push(carlitos_identificador_de_dependencias);
-                }
-            }*/
            
-            cout << "Actividad terminada " << actividades[id_actividad_terminada].nombre << " , ahora quedan " << registrador_de_pecausas.size() - 1 << " procesos activos" << endl;
             registrador_de_pecausas.erase(id_del_proceso_terminado);
+            registro_canales.erase(id_del_proceso_terminado);
         }
     }
     archivo.close();
