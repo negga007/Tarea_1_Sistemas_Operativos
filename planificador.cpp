@@ -19,6 +19,7 @@ struct Actividad{//ahora si, k no entendi como era el heap en c.......
     int tiempo_ms;
     vector<string> dependencias;
     vector<string> dependientes;
+    int contador_dependencias; //para optimizar el algoritmo y salir del o² q m persigue...
 };
 
 string limpiar_espacios(const string &palabra){
@@ -59,6 +60,11 @@ int main(int argc, char *argv[]){
     string act_id, act_nombre, act_tiempo, act_deps;
 
     while (getline(archivo, linea)) { //lectura e ingestion del texto
+
+        if(linea.empty() || linea.find_first_not_of(" \n\r\t") == string::npos){
+            continue;
+        }
+
         stringstream separador_papu_pro(linea);
         getline(separador_papu_pro, act_id, ':');
         getline(separador_papu_pro, act_nombre, ':');
@@ -91,8 +97,9 @@ int main(int argc, char *argv[]){
             }
         }
 
+        int cuantos_dependen = dependencias.size();
         //creacion objeto
-        Actividad actividad = {acti_id, act_nombre, acti_tiempo, dependencias, {}};
+        Actividad actividad = {acti_id, act_nombre, acti_tiempo, dependencias, {}, cuantos_dependen};
         actividades[acti_id] = actividad;
     }
 
@@ -137,7 +144,15 @@ int main(int argc, char *argv[]){
             int id_del_proceso_terminado = wait(NULL);
             string id_actividad_terminada = registrador_de_pecausas[id_del_proceso_terminado];
 
-            for(auto &carlitos_identificador_de_dependencias : actividades[id_actividad_terminada].dependientes){
+            for(auto &id_del_dependiente : actividades[id_actividad_terminada].dependientes){
+                actividades[id_del_dependiente].contador_dependencias--;
+                
+                if(actividades[id_del_dependiente].contador_dependencias == 0){
+                    actividades_cola.push(id_del_dependiente);
+                }
+            }
+
+            /*for(auto &carlitos_identificador_de_dependencias : actividades[id_actividad_terminada].dependientes){
                 vector<string> &quienes_dependen_de_carlitos = actividades[carlitos_identificador_de_dependencias].dependencias;
                 vector<string>::iterator posicion_del_listo = find(quienes_dependen_de_carlitos.begin(), quienes_dependen_de_carlitos.end(), id_actividad_terminada);
                 //complicao pero practicamente guarda lo que dice el nombre
@@ -149,7 +164,8 @@ int main(int argc, char *argv[]){
                 if(quienes_dependen_de_carlitos.empty()){
                     actividades_cola.push(carlitos_identificador_de_dependencias);
                 }
-            }
+            }*/
+           
             cout << "Actividad terminada " << actividades[id_actividad_terminada].nombre << " , ahora quedan " << registrador_de_pecausas.size() - 1 << " procesos activos" << endl;
             registrador_de_pecausas.erase(id_del_proceso_terminado);
         }
