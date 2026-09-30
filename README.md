@@ -34,7 +34,7 @@ Una actividad por línea: ID : nombre : tiempo_ms : dep1, dep2, ...
 - tiempo_en_ms: pasa los ms del plan a microsegundos para usleep.
 - guardia_de_la_fonda: manejador de SIGINT, solo pone en 1 la bandera llego_seremi.
 - main: lee el plan, arma el grafo y corre el ciclo del planificador.
-
+- Simulacion de errores: en el proceso hijo hay un bloque comentado con un if que hace exit(1) desarrollado para la simulacion de errores en base a un id fijo.
 ## Cómo funciona
 
 - Parseo: El programa lee el archivo línea por línea con getline y va separando los pedazos usando los dos puntos y las comas. Guarda todo en un map usando el ID de la actividad para encontrar los datos rápido.
