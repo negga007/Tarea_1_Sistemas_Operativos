@@ -9,6 +9,7 @@ Lee un plan.txt con actividades (ID, nombre, tiempo en ms y dependencias) que fo
 ## Archivos
 
 - planificador.cpp: todo el código
+- plan.txt
 - README.md: este archivo
 
 ## Compilar y ejecutar
