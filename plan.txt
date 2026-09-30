@@ -1,0 +1,22 @@
+15 : dormir : 100 : 10
+6 : bailar_cueca : 900 : 4, 22, 1, 13
+20 : preparar_pebre : 350 : 21
+9 : armar_choripan : 250 : 21, 5
+14 : prender_carbon : 500 :
+19 : brindar : 60 : 13, 6
+2 : armar_mesa : 200 :
+22 : servir_asado : 200 : 12, 18, 7
+3 : comprar_carne : 1200 :
+1 : servir_choripan : 120 : 9, 18
+17 : comprar_empanadas : 600 :
+10 : limpiar_ramada : 400 : 19
+5 : asar_longaniza : 800 : 14, 3
+13 : servir_bebidas : 90 : 16, 7
+21 : comprar_pan : 300 :
+4 : servir_entradas : 150 : 18, 11, 20
+12 : asar_costillar : 1500 : 14, 3
+16 : enfriar_vino : 700 : 8
+18 : poner_manteles : 100 : 2
+8 : comprar_vino : 400 :
+11 : calentar_empanadas : 450 : 17, 14
+7 : poner_vasos : 80 : 2
